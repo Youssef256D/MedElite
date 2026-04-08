@@ -136,7 +136,7 @@ The admin settings screen reads and updates centralized JSON-backed settings for
 
 ## Netlify deployment
 
-MedElite is wired to deploy on Netlify instead of Vercel. That keeps the full Next.js server runtime, supports the current `argon2` auth flow, and lets the site stay on a free hosting plan.
+MedElite is wired to deploy on Netlify. That keeps the full Next.js server runtime, supports the current Argon2id auth flow, and lets the site stay on a free hosting plan.
 
 1. Log in once from the project folder:
 
