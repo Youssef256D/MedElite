@@ -2,10 +2,16 @@
   "name": "medelite",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
+    "dev:netlify": "npx netlify-cli dev",
     "build": "next build",
+    "build:netlify": "npx netlify-cli build",
     "start": "next start",
+    "deploy:netlify": "npx netlify-cli deploy --build --prod",
     "lint": "eslint .",
     "db:push": "supabase db push --linked --dns-resolver https",
     "db:seed": "tsx --env-file=.env scripts/supabase-seed.ts",

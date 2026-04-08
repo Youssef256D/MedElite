@@ -93,8 +93,11 @@ All seeded accounts use the password `MedElite123!`.
 ## Scripts
 
 - `npm run dev`: start the Next.js dev server
+- `npm run dev:netlify`: run the site locally through Netlify
 - `npm run build`: production build
+- `npm run build:netlify`: build the site the same way Netlify will
 - `npm run start`: run the production server
+- `npm run deploy:netlify`: build and deploy the current branch to Netlify production
 - `npm run lint`: lint the codebase
 - `npm run db:push`: push schema to the linked Supabase project
 - `npm run db:seed`: seed demo data into Supabase
@@ -130,6 +133,62 @@ The admin settings screen reads and updates centralized JSON-backed settings for
 - media security
 - homepage content
 - branding
+
+## Netlify deployment
+
+MedElite is wired to deploy on Netlify instead of Vercel. That keeps the full Next.js server runtime, supports the current `argon2` auth flow, and lets the site stay on a free hosting plan.
+
+1. Log in once from the project folder:
+
+```bash
+npx netlify-cli login
+```
+
+2. Link the local repo to a Netlify site:
+
+```bash
+npx netlify-cli init
+```
+
+3. Add the production environment variables in Netlify:
+
+- `NEXT_PUBLIC_APP_URL`
+- `AUTH_COOKIE_NAME`
+- `AUTH_SESSION_TTL_DAYS`
+- `MEDIA_SIGNING_SECRET`
+- `INTERNAL_JOB_SECRET`
+- `STORAGE_PROVIDER`
+- `UPLOAD_TEMP_ROOT`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET`
+- `LOCAL_STORAGE_ROOT`
+- `DEFAULT_SESSION_LIMIT`
+- `DEFAULT_DEVICE_LIMIT`
+- `MAX_UPLOAD_SIZE_BYTES`
+- `UPLOAD_CHUNK_SIZE_BYTES`
+- `PLAYBACK_URL_TTL_SECONDS`
+
+4. Deploy production from the terminal:
+
+```bash
+npm run deploy:netlify
+```
+
+5. Push future changes the same way:
+
+```bash
+git add .
+git commit -m "Your update message"
+git push origin main
+```
+
+Then either trigger a Netlify Git build from the dashboard or run `npm run deploy:netlify` again from the terminal.
+
+### Upload job processing
+
+The file [process-upload-jobs.mjs](/Users/youssefayoub/Documents/Apps/MedElite%20/netlify/functions/process-upload-jobs.mjs) adds a scheduled Netlify function that calls the internal upload-processing route every 5 minutes. That replaces the always-on local worker for production hosting.
 
 ## Notes and future hardening
 
