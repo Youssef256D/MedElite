@@ -8,8 +8,14 @@ import { getCurrentSession, getRoleHome } from "@/modules/auth/service";
 
 const navigation = [
   { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/instructors", label: "Instructors" },
+  {
+    label: "Users",
+    children: [
+      { href: "/admin/users/students", label: "Students" },
+      { href: "/admin/users/instructors", label: "Instructors" },
+      { href: "/admin/users/admins", label: "Admins" },
+    ],
+  },
   { href: "/admin/courses", label: "Courses" },
   { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/uploads", label: "Uploads" },

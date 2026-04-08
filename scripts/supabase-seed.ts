@@ -508,38 +508,6 @@ async function main() {
     },
   ]);
 
-  await insertRows("SuspiciousEvent", [
-    {
-      id: createId(),
-      userId: student.id,
-      type: "MULTIPLE_CONCURRENT_STREAMS",
-      reason: "Seeded example event for moderation testing.",
-      severity: 2,
-      status: "OPEN",
-    },
-  ]);
-
-  await insertRows("AuditLog", [
-    {
-      id: createId(),
-      actorUserId: adminUser.id,
-      entityType: "Course",
-      entityId: courseBlueprints[0].id,
-      action: "course.seeded",
-      message: "Seeded published course for demo access.",
-      metadata: { source: "supabase-seed" },
-    },
-    {
-      id: createId(),
-      actorUserId: adminUser.id,
-      entityType: "User",
-      entityId: users[1].id,
-      action: "instructor.approved",
-      message: "Seeded instructor approval.",
-      metadata: { source: "supabase-seed" },
-    },
-  ]);
-
   console.log("Supabase seed complete.");
   console.log("Accounts ready:");
   console.log("- student@medelite.local / MedElite123!");

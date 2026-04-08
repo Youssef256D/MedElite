@@ -1,4 +1,4 @@
-import { countRows, database, groupBy, indexById, many, type Tables } from "@/lib/database";
+import { countRows, database, groupBy, indexById, many, type Role, type Tables } from "@/lib/database";
 
 type UserWithRelations = Tables<"User"> & {
   profile: Tables<"Profile"> | null;
@@ -118,7 +118,6 @@ export async function getAdminDashboardData() {
     activeSubscriptions,
     pendingCourseReviews,
     pendingEnrollmentReviews,
-    recentAuditLogs,
   ] = await Promise.all([
     countRows(database.from("User").select("*", { count: "exact", head: true }), "User count could not be loaded."),
     countRows(
@@ -149,10 +148,6 @@ export async function getAdminDashboardData() {
       database.from("Enrollment").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       "Pending enrollment approvals could not be loaded.",
     ),
-    many(
-      database.from("AuditLog").select("*").order("createdAt", { ascending: false }).limit(10),
-      "Audit logs could not be loaded.",
-    ),
   ]);
 
   return {
@@ -166,22 +161,24 @@ export async function getAdminDashboardData() {
       pendingCourseReviews,
       pendingEnrollmentReviews,
     },
-    recentAuditLogs,
   };
 }
 
-export async function getAdminUsers() {
-  const users = await many(
-    database.from("User").select("*").order("createdAt", { ascending: false }),
-    "Users could not be loaded.",
-  );
+export async function getAdminUsers(input?: { role?: Role }) {
+  let query = database.from("User").select("*").order("createdAt", { ascending: false });
+
+  if (input?.role) {
+    query = query.eq("role", input.role);
+  }
+
+  const users = await many(query, "Users could not be loaded.");
 
   if (users.length === 0) {
     return [];
   }
 
   const userIds = users.map((user) => user.id);
-  const [profiles, subscriptions, sessions, devices] = await Promise.all([
+  const [profiles, subscriptions, sessions, devices, instructorProfiles, instructorCourses] = await Promise.all([
     many(database.from("Profile").select("*").in("userId", userIds), "Profiles could not be loaded."),
     many(
       database.from("Subscription").select("*").in("userId", userIds).order("startsAt", { ascending: false }),
@@ -189,6 +186,14 @@ export async function getAdminUsers() {
     ),
     many(database.from("Session").select("*").in("userId", userIds), "Sessions could not be loaded."),
     many(database.from("Device").select("*").in("userId", userIds), "Devices could not be loaded."),
+    many(
+      database.from("InstructorProfile").select("*").in("userId", userIds),
+      "Instructor profiles could not be loaded.",
+    ),
+    many(
+      database.from("Course").select("id, instructorId").in("instructorId", userIds),
+      "Instructor course counts could not be loaded.",
+    ),
   ]);
 
   const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
@@ -201,6 +206,8 @@ export async function getAdminUsers() {
     devices.filter((device) => device.status === "ACTIVE" && !device.revokedAt),
     (device) => device.userId,
   );
+  const instructorProfileByUserId = new Map(instructorProfiles.map((profile) => [profile.userId, profile]));
+  const coursesByInstructorId = groupBy(instructorCourses, (course) => course.instructorId);
 
   return users.map((user) => ({
     ...user,
@@ -208,6 +215,8 @@ export async function getAdminUsers() {
     subscriptions: (subscriptionsByUserId.get(user.id) ?? []).slice(0, 1),
     sessions: sessionsByUserId.get(user.id) ?? [],
     devices: devicesByUserId.get(user.id) ?? [],
+    instructorProfile: instructorProfileByUserId.get(user.id) ?? null,
+    coursesManagedCount: (coursesByInstructorId.get(user.id) ?? []).length,
   }));
 }
 
@@ -372,14 +381,16 @@ export async function getAdminUploadJobs() {
 }
 
 export async function getAdminSuspiciousEvents() {
-  const events = await many(
+  const events = (
+    await many(
     database
       .from("SuspiciousEvent")
       .select("*")
       .order("severity", { ascending: false })
       .order("createdAt", { ascending: false }),
     "Suspicious events could not be loaded.",
-  );
+    )
+  ).filter((event) => !event.reason?.startsWith("Seeded example event"));
 
   if (events.length === 0) {
     return [];
@@ -412,10 +423,19 @@ export async function getAdminSuspiciousEvents() {
 }
 
 export async function getAdminAuditLogs() {
-  return many(
+  const logs = await many(
     database.from("AuditLog").select("*").order("createdAt", { ascending: false }).limit(100),
     "Audit logs could not be loaded.",
   );
+
+  return logs.filter((log) => {
+    const metadataSource =
+      log.metadata && typeof log.metadata === "object" && !Array.isArray(log.metadata)
+        ? log.metadata.source
+        : null;
+
+    return metadataSource !== "supabase-seed" && log.action !== "course.seeded" && !log.message.startsWith("Seeded ");
+  });
 }
 
 export async function getAdminSiteSettings() {

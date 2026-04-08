@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createId, database, execute, maybeOne, StudentYear, UserStatus } from "@/lib/database";
+import { createId, database, execute, maybeOne, StudentYear, UserStatus, type Json } from "@/lib/database";
 import { AppError } from "@/lib/errors";
 import { requireRoles, revokeAllSessionsForUser } from "@/modules/auth/service";
 import { hashPassword } from "@/modules/auth/password";
@@ -267,7 +267,9 @@ export async function createManagedUserAction(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
-  revalidatePath("/admin/instructors");
+  revalidatePath("/admin/users/students");
+  revalidatePath("/admin/users/instructors");
+  revalidatePath("/admin/users/admins");
   revalidatePath("/admin/dashboard");
 }
 
@@ -329,7 +331,9 @@ export async function updateUserAccountAction(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
-  revalidatePath("/admin/instructors");
+  revalidatePath("/admin/users/students");
+  revalidatePath("/admin/users/instructors");
+  revalidatePath("/admin/users/admins");
   revalidatePath("/admin/dashboard");
   revalidatePath("/student/dashboard");
 }
@@ -374,6 +378,9 @@ export async function updateUserStatusAction(formData: FormData) {
   });
 
   revalidatePath("/admin/users");
+  revalidatePath("/admin/users/students");
+  revalidatePath("/admin/users/instructors");
+  revalidatePath("/admin/users/admins");
   revalidatePath("/admin/access");
 }
 
@@ -426,7 +433,7 @@ export async function approveInstructorAction(userId: string) {
     message: "Instructor access was approved.",
   });
 
-  revalidatePath("/admin/instructors");
+  revalidatePath("/admin/users/instructors");
 }
 
 export async function resolveSuspiciousEventAction(eventId: string) {
@@ -653,7 +660,13 @@ export async function saveSiteSettingAction(formData: FormData) {
     value: formData.get("value"),
   });
 
-  const parsedValue = JSON.parse(payload.value);
+  let parsedValue: Json;
+
+  try {
+    parsedValue = JSON.parse(payload.value) as Json;
+  } catch {
+    throw new AppError("The setting value could not be parsed. Please review the fields and try again.", "VALIDATION_ERROR", 400);
+  }
 
   await database
     .from("SiteSetting")

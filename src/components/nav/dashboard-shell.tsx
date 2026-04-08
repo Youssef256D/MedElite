@@ -1,8 +1,9 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { BrandMark } from "@/components/nav/brand-mark";
 import { PageTransition } from "@/components/transitions/page-transition";
@@ -10,8 +11,9 @@ import { logoutAction } from "@/modules/auth/actions";
 import { cn } from "@/lib/utils";
 
 type NavigationItem = {
-  href: string;
+  href?: string;
   label: string;
+  children?: NavigationItem[];
 };
 
 type DashboardShellProps = {
@@ -28,6 +30,7 @@ export function DashboardShell({
   userRole,
 }: DashboardShellProps) {
   const pathname = usePathname();
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)]">
@@ -37,11 +40,70 @@ export function DashboardShell({
             <BrandMark />
             <nav className="space-y-1">
               {navigation.map((item) => {
-                const isActive = pathname === item.href;
+                const itemKey = item.href ?? item.label;
+
+                if (item.children) {
+                  const hasActiveChild = item.children.some(
+                    (child) => pathname === child.href || pathname.startsWith(`${child.href}/`),
+                  );
+                  const isExpanded = hasActiveChild
+                    ? expandedSections[itemKey] !== false
+                    : expandedSections[itemKey] === true;
+
+                  return (
+                    <div key={itemKey} className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedSections((current) => ({
+                            ...current,
+                            [itemKey]: !isExpanded,
+                          }))
+                        }
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200",
+                          hasActiveChild
+                            ? "bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
+                            : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]",
+                        )}
+                      >
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")}
+                        />
+                      </button>
+                      {isExpanded ? (
+                        <div className="ml-4 space-y-1 border-l border-[var(--color-border)] pl-3">
+                          {item.children.map((child) => {
+                            const isChildActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href!}
+                                className={cn(
+                                  "flex items-center rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-200",
+                                  isChildActive
+                                    ? "bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
+                                    : "text-[var(--color-text-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]",
+                                )}
+                              >
+                                {child.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                }
+
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={item.href!}
                     className={cn(
                       "flex items-center rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200",
                       isActive
