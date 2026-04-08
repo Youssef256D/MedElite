@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from '@vercel/analytics/next';
 
 import { ToasterProvider } from "@/components/providers/toaster-provider";
 import "./globals.css";
@@ -23,7 +24,11 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className="h-full antialiased"
     >
-      <body className="min-h-full">{children}<ToasterProvider /></body>
+      <body className="min-h-full">
+        {children}
+        <ToasterProvider />
+        <Analytics />
+      </body>
     </html>
   );
 }
