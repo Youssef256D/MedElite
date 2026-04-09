@@ -35,6 +35,15 @@ export default async function StudentCoursesPage() {
               ? `${enrollment.course.instructor.firstName} ${enrollment.course.instructor.lastName}`
               : "Unknown instructor";
             const canOpenCourse = enrollment.status === "ACTIVE" || enrollment.status === "COMPLETED";
+            const destination = canOpenCourse
+              ? enrollment.lastLesson
+                ? `/learn/${enrollment.course?.slug ?? ""}/${enrollment.lastLesson.slug}`
+                : enrollment.course
+                  ? `/student/course/${enrollment.course.slug}`
+                  : "#"
+              : enrollment.course
+                ? `/student/course/${enrollment.course.slug}`
+                : "#";
             const card = (
               <Card className="group flex items-center gap-5 transition-all duration-200 hover:shadow-lg hover:scale-[1.01]">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-brand-soft)] transition-colors group-hover:bg-[var(--color-brand)] group-hover:text-white">
@@ -67,16 +76,10 @@ export default async function StudentCoursesPage() {
             );
 
             return (
-              canOpenCourse ? (
+              destination !== "#" ? (
                 <Link
                   key={enrollment.id}
-                  href={
-                    enrollment.lastLesson
-                      ? `/learn/${enrollment.course?.slug ?? ""}/${enrollment.lastLesson.slug}`
-                      : enrollment.course
-                        ? `/student/course/${enrollment.course.slug}`
-                        : "#"
-                  }
+                  href={destination}
                   className="block"
                 >
                   {card}

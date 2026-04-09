@@ -8,6 +8,11 @@ import { AppError } from "@/lib/errors";
 import { requireRoles, revokeAllSessionsForUser } from "@/modules/auth/service";
 import { hashPassword } from "@/modules/auth/password";
 import { recordAuditLogFromRequest } from "@/modules/audit/service";
+import {
+  revalidateAdminCourseWorkspacePaths,
+  revalidateEnrollmentWorkflowPaths,
+  revalidateInstructorCoursePaths,
+} from "@/modules/courses/revalidation";
 import { resolveSuspiciousEvent } from "@/modules/suspicious/service";
 
 const manageableRoleValues = ["STUDENT", "INSTRUCTOR", "ADMIN"] as const;
@@ -95,14 +100,6 @@ const enrollmentReviewSchema = z.object({
   enrollmentId: z.string().min(1),
   reviewNotes: z.string().optional(),
 });
-
-function revalidateAdminCoursePaths() {
-  revalidatePath("/admin/courses");
-  revalidatePath("/admin/courses/all");
-  revalidatePath("/admin/courses/course-approvals");
-  revalidatePath("/admin/courses/payments");
-  revalidatePath("/admin/courses/payment-approvals");
-}
 
 async function ensureStarterSubscriptionForStudent(userId: string, now: Date) {
   const existingSubscription = await maybeOne(
@@ -497,12 +494,11 @@ export async function approveCourseAction(formData: FormData) {
     },
   });
 
-  revalidateAdminCoursePaths();
+  revalidateAdminCourseWorkspacePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath("/student/dashboard");
   revalidatePath(`/student/course/${course.slug}`);
-  revalidatePath("/instructor/courses");
-  revalidatePath(`/instructor/courses/${course.id}`);
+  revalidateInstructorCoursePaths(course.id);
 }
 
 export async function requestCourseChangesAction(formData: FormData) {
@@ -541,11 +537,10 @@ export async function requestCourseChangesAction(formData: FormData) {
     message: "Course approval was sent back for revisions.",
   });
 
-  revalidateAdminCoursePaths();
+  revalidateAdminCourseWorkspacePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath(`/student/course/${course.slug}`);
-  revalidatePath("/instructor/courses");
-  revalidatePath(`/instructor/courses/${course.id}`);
+  revalidateInstructorCoursePaths(course.id);
 }
 
 export async function approveEnrollmentAction(formData: FormData) {
@@ -602,11 +597,10 @@ export async function approveEnrollmentAction(formData: FormData) {
     message: "A course enrollment request was approved.",
   });
 
-  revalidateAdminCoursePaths();
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/student/courses");
-  revalidatePath(`/student/course/${course.slug}`);
-  revalidatePath("/student/dashboard");
+  revalidateEnrollmentWorkflowPaths({
+    courseId: course.id,
+    courseSlug: course.slug,
+  });
 }
 
 export async function rejectEnrollmentAction(formData: FormData) {
@@ -652,13 +646,20 @@ export async function rejectEnrollmentAction(formData: FormData) {
     message: "A course enrollment request was rejected.",
   });
 
-  revalidateAdminCoursePaths();
-  revalidatePath("/admin/dashboard");
-  revalidatePath("/student/courses");
   if (course) {
-    revalidatePath(`/student/course/${course.slug}`);
+    revalidateEnrollmentWorkflowPaths({
+      courseId: course.id,
+      courseSlug: course.slug,
+    });
+  } else {
+    revalidateAdminCourseWorkspacePaths();
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/student/dashboard");
+    revalidatePath("/student/courses");
+    revalidatePath("/instructor/dashboard");
+    revalidatePath("/instructor/courses");
+    revalidatePath("/instructor/analytics");
   }
-  revalidatePath("/student/dashboard");
 }
 
 export async function saveSiteSettingAction(formData: FormData) {

@@ -25,6 +25,20 @@ type ModuleWithRelations = Tables<"Module"> & {
   lessons: LessonWithRelations[];
 };
 
+type CourseEnrollmentSummary = {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  paused: number;
+  revoked: number;
+};
+
+type EnrollmentWithRelations = Tables<"Enrollment"> & {
+  user: UserWithRelations | null;
+  course?: Tables<"Course"> | null;
+};
+
 type CourseWithRelations = Tables<"Course"> & {
   category: Tables<"Category"> | null;
   instructor: UserWithRelations | null;
@@ -36,6 +50,7 @@ type CourseWithRelations = Tables<"Course"> & {
     lessons: number;
     enrollments: number;
   };
+  _enrollmentSummary: CourseEnrollmentSummary;
   _stats: {
     videos: number;
     averageVideoDurationSeconds: number | null;
@@ -61,6 +76,51 @@ function getVideoStats(input: {
         ? Math.round(durations.reduce((sum, duration) => sum + duration, 0) / durations.length)
         : null,
   };
+}
+
+function createEmptyEnrollmentSummary(): CourseEnrollmentSummary {
+  return {
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    paused: 0,
+    revoked: 0,
+  };
+}
+
+function summarizeEnrollments(enrollments: Tables<"Enrollment">[]): CourseEnrollmentSummary {
+  const summary = createEmptyEnrollmentSummary();
+
+  for (const enrollment of enrollments) {
+    summary.total += 1;
+
+    if (enrollment.status === "PENDING") {
+      summary.pending += 1;
+      continue;
+    }
+
+    if (enrollment.status === "ACTIVE" || enrollment.status === "COMPLETED") {
+      summary.approved += 1;
+      continue;
+    }
+
+    if (enrollment.status === "REJECTED") {
+      summary.rejected += 1;
+      continue;
+    }
+
+    if (enrollment.status === "PAUSED") {
+      summary.paused += 1;
+      continue;
+    }
+
+    if (enrollment.status === "REVOKED") {
+      summary.revoked += 1;
+    }
+  }
+
+  return summary;
 }
 
 function sortByDateDesc<T extends { publishedAt?: Date | null; updatedAt?: Date | null; createdAt?: Date | null }>(
@@ -99,6 +159,27 @@ async function getUsersWithRelations(userIds: string[]) {
     ...user,
     profile: profileByUserId.get(user.id) ?? null,
     instructorProfile: instructorProfileByUserId.get(user.id) ?? null,
+  }));
+}
+
+async function decorateCourseEnrollments(
+  enrollments: Tables<"Enrollment">[],
+  input?: { courseMap?: Map<string, Tables<"Course">> },
+) {
+  if (enrollments.length === 0) {
+    return [] as EnrollmentWithRelations[];
+  }
+
+  const users = await getUsersWithRelations(
+    Array.from(new Set(enrollments.map((enrollment) => enrollment.userId))),
+  );
+  const userMap = indexById(users);
+  const courseMap = input?.courseMap;
+
+  return enrollments.map((enrollment) => ({
+    ...enrollment,
+    user: userMap.get(enrollment.userId) ?? null,
+    course: courseMap?.get(enrollment.courseId) ?? null,
   }));
 }
 
@@ -288,6 +369,7 @@ async function decorateCourses(
   const instructorMap = indexById(instructors);
   const lessonsByCourseId = groupBy(lessons, (lesson) => lesson.courseId);
   const modulesByCourseId = groupBy(modules, (module) => module.courseId);
+  const allEnrollmentsByCourseId = groupBy(enrollments, (enrollment) => enrollment.courseId);
   const enrollmentsByCourseId = groupBy(
     options?.enrollmentStatus
       ? enrollments.filter((enrollment) => enrollment.status === options.enrollmentStatus)
@@ -305,6 +387,7 @@ async function decorateCourses(
     const courseAnnouncements = announcementsByCourseId.get(course.id) ?? [];
     const courseLessons = options?.includeLessons ? lessonsByCourseId.get(course.id) ?? [] : undefined;
     const courseModules = options?.includeModules ? modulesByCourseId.get(course.id) ?? [] : undefined;
+    const courseEnrollments = allEnrollmentsByCourseId.get(course.id) ?? [];
     return {
       ...course,
       category: course.categoryId ? categoryMap.get(course.categoryId) ?? null : null,
@@ -319,6 +402,7 @@ async function decorateCourses(
         lessons: counts.lessonsByCourseId.get(course.id) ?? 0,
         enrollments: counts.enrollmentsByCourseId.get(course.id) ?? 0,
       },
+      _enrollmentSummary: summarizeEnrollments(courseEnrollments),
       _stats: getVideoStats({
         lessons: courseLessons,
         modules: courseModules,
@@ -477,6 +561,7 @@ export async function getInstructorCourseBuilder(courseId: string, instructorId:
     includeModules: true,
     includeResources: true,
     includeVideoAssets: true,
+    includeEnrollments: true,
   });
 
   return decoratedCourse ?? null;
@@ -498,7 +583,9 @@ export async function getInstructorDashboardData(instructorId: string) {
     ),
   ]);
 
-  const decoratedCourses = await decorateCourses(courses, {});
+  const decoratedCourses = await decorateCourses(courses, {
+    includeEnrollments: true,
+  });
   const courseMap = indexById(courses);
   const uploadCourseIds = Array.from(new Set(uploads.map((upload) => upload.courseId)));
   const uploadLessonIds = Array.from(new Set(uploads.map((upload) => upload.lessonId)));
@@ -533,6 +620,22 @@ export async function getInstructorDashboardData(instructorId: string) {
       ...enrollment,
       course: courseMap.get(enrollment.courseId) ?? null,
     }));
+  const pendingEnrollmentRecords = enrollments
+    .filter(
+      (enrollment) =>
+        instructorCourseIds.has(enrollment.courseId) &&
+        enrollment.status === "PENDING" &&
+        Boolean(enrollment.paymentMethod || enrollment.paymentScreenshotStorageKey),
+    )
+    .sort((left, right) => {
+      const leftValue = left.paymentSubmittedAt?.getTime() ?? left.updatedAt?.getTime() ?? 0;
+      const rightValue = right.paymentSubmittedAt?.getTime() ?? right.updatedAt?.getTime() ?? 0;
+      return rightValue - leftValue;
+    });
+  const pendingEnrollmentReviews = await decorateCourseEnrollments(
+    pendingEnrollmentRecords.slice(0, 6),
+    { courseMap },
+  );
 
   return {
     courses: decoratedCourses.slice(0, 4),
@@ -543,11 +646,13 @@ export async function getInstructorDashboardData(instructorId: string) {
       videoAsset: uploadAssetByJobId.get(upload.id) ?? null,
     })),
     enrollments: instructorEnrollments,
+    pendingEnrollmentReviews,
     stats: {
       totalCourses: courses.length,
       publishedCourses: courses.filter((course) => course.status === "PUBLISHED").length,
       activeUploads: uploads.filter((job) => ["UPLOADING", "QUEUED", "PROCESSING"].includes(job.status)).length,
       totalEnrollments: instructorEnrollments.length,
+      pendingEnrollmentReviews: pendingEnrollmentRecords.length,
     },
   };
 }

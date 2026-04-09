@@ -314,7 +314,7 @@ export default async function InstructorCourseBuilderPage({
         </Card>
 
         <Card className="space-y-4">
-          <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Builder notes</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Enrollment pipeline</h2>
           <div className="space-y-3 text-sm leading-7 text-[var(--color-text-muted)]">
             <p>
               Topics: {(course.modules ?? []).length}
@@ -323,7 +323,19 @@ export default async function InstructorCourseBuilderPage({
               Lessons: {course._count.lessons}
             </p>
             <p>
-              Learners: {course._count.enrollments}
+              Approved learners: {course._count.enrollments}
+            </p>
+            <p>
+              Waiting for admin payment review: {course._enrollmentSummary.pending}
+            </p>
+            <p>
+              Rejected payment requests: {course._enrollmentSummary.rejected}
+            </p>
+            <p>
+              Total enrollment requests: {course._enrollmentSummary.total}
+            </p>
+            <p>
+              Students see the course price and payment instructions on the course page, upload their proof, and then admins activate access after review.
             </p>
             <p>
               Uploading a new video from the upload center will create the next numbered lesson title automatically.

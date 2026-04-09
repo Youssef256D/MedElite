@@ -221,6 +221,9 @@ function PaymentApprovalCard({
               placeholder="Optional note for the student"
             />
           </label>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Approving this proof activates the student&apos;s enrollment in the course immediately.
+          </p>
           <Button type="submit">Approve enrollment</Button>
         </form>
 

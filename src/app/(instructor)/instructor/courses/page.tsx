@@ -80,7 +80,7 @@ export default async function InstructorCoursesPage() {
                         {course.status} · {getStudentYearLabel(course.targetStudentYear)} · {getCourseAccessTypeLabel(course.accessType)}
                       </p>
                       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                        {course._count.lessons} lessons · {course._count.enrollments} learners ·{" "}
+                        {course._count.lessons} lessons · {course._count.enrollments} approved learners · {course._enrollmentSummary.pending} waiting for admin review ·{" "}
                         {course.accessType === "FREE"
                           ? "Free"
                           : course.priceCents && course.priceCents > 0

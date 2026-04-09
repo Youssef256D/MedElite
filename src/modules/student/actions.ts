@@ -2,7 +2,6 @@
 
 import path from "node:path";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { PaymentMethod, createId, database, maybeOne } from "@/lib/database";
@@ -11,6 +10,7 @@ import { storage } from "@/lib/storage";
 import { slugify } from "@/lib/utils";
 import { requireAuthenticatedUser } from "@/modules/auth/service";
 import { recordAuditLogFromRequest } from "@/modules/audit/service";
+import { revalidateEnrollmentWorkflowPaths } from "@/modules/courses/revalidation";
 
 export type EnrollmentActionState = {
   status: "idle" | "success" | "error";
@@ -182,9 +182,10 @@ export async function requestCourseEnrollmentAction(
         message: "A free course enrollment was activated instantly.",
       });
 
-      revalidatePath("/student/dashboard");
-      revalidatePath("/student/courses");
-      revalidatePath(`/student/course/${course.slug}`);
+      revalidateEnrollmentWorkflowPaths({
+        courseId: course.id,
+        courseSlug: course.slug,
+      });
 
       return {
         status: "success",
@@ -249,11 +250,10 @@ export async function requestCourseEnrollmentAction(
       },
     });
 
-    revalidatePath("/admin/courses");
-    revalidatePath("/admin/dashboard");
-    revalidatePath("/student/dashboard");
-    revalidatePath("/student/courses");
-    revalidatePath(`/student/course/${course.slug}`);
+    revalidateEnrollmentWorkflowPaths({
+      courseId: course.id,
+      courseSlug: course.slug,
+    });
 
     return {
       status: "success",
