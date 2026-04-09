@@ -1,12 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
+import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { createPublicMetadata, getOrganizationJsonLd } from "@/lib/seo";
+
+export const metadata: Metadata = createPublicMetadata({
+  title: "About MedElite Academy",
+  description:
+    "Learn how MedElite Academy helps medical students and instructors teach, learn, and grow through a focused digital education platform.",
+  path: "/about",
+});
 
 export default function AboutPage() {
   return (
     <div className="page-grid space-y-10 py-16">
+      <JsonLd data={getOrganizationJsonLd()} />
       <SectionHeading
         eyebrow="About MedElite Academy"
         title="A platform built for medical education"

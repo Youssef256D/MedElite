@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/nav/dashboard-shell";
+import { createNoIndexMetadata } from "@/lib/seo";
 import { canAccessInstructorStudio, roleLabels } from "@/modules/auth/permissions";
 import { getCurrentSession, getRoleHome } from "@/modules/auth/service";
+
+export const metadata: Metadata = createNoIndexMetadata("Instructor Studio");
 
 const navigation = [
   { href: "/instructor/dashboard", label: "Dashboard" },

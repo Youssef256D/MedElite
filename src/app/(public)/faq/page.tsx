@@ -1,12 +1,24 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/json-ld";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { createPublicMetadata, getFaqJsonLd } from "@/lib/seo";
 import { getHomepageSettings } from "@/modules/site-settings/service";
+
+export const metadata: Metadata = createPublicMetadata({
+  title: "Frequently Asked Questions",
+  description:
+    "Read common questions about MedElite Academy, course access, enrollments, and how medical students and instructors use the platform.",
+  path: "/faq",
+});
 
 export default async function FaqPage() {
   const homepage = await getHomepageSettings();
 
   return (
     <div className="page-grid space-y-8 py-16">
+      <JsonLd data={getFaqJsonLd(homepage.faqs)} />
       <SectionHeading
         eyebrow="FAQ"
         title="Frequently asked questions"

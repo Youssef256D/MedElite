@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+import { JsonLd } from "@/components/seo/json-ld";
+import { createPublicMetadata, getOrganizationJsonLd } from "@/lib/seo";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -5,11 +9,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { getBrandingSettings } from "@/modules/site-settings/service";
 
+export const metadata: Metadata = createPublicMetadata({
+  title: "Contact MedElite Academy",
+  description:
+    "Contact MedElite Academy for student support, instructor partnerships, and platform questions about courses and enrollment.",
+  path: "/contact",
+});
+
 export default async function ContactPage() {
   const branding = await getBrandingSettings();
 
   return (
     <div className="page-grid space-y-8 py-16">
+      <JsonLd data={getOrganizationJsonLd()} />
       <SectionHeading
         eyebrow="Contact"
         title="Get in touch"

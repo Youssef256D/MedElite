@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 
 import { redirect } from "next/navigation";
 
 import { BrandMark } from "@/components/nav/brand-mark";
 import { PageTransition } from "@/components/transitions/page-transition";
+import { createNoIndexMetadata } from "@/lib/seo";
 import { getCurrentSession, getRoleHome } from "@/modules/auth/service";
+
+export const metadata: Metadata = createNoIndexMetadata("Secure Sign In");
 
 export default async function AuthLayout({ children }: { children: ReactNode }) {
   const session = await getCurrentSession();

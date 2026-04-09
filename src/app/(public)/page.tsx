@@ -1,11 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookOpen, GraduationCap, Users } from "lucide-react";
 
+import { JsonLd } from "@/components/seo/json-ld";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FadeIn } from "@/components/transitions/fade-in";
 import { getCurrentSession, getRoleHome } from "@/modules/auth/service";
+import { createPublicMetadata, getOrganizationJsonLd, getWebsiteJsonLd } from "@/lib/seo";
 import { getHomepageSettings } from "@/modules/site-settings/service";
+
+export const metadata: Metadata = createPublicMetadata({
+  title: "Premium Medical Education Platform",
+  description:
+    "Discover premium medical education for students and instructors through MedElite Academy's secure learning platform.",
+  path: "/",
+});
 
 export default async function LandingPage() {
   const [homepage, session] = await Promise.all([getHomepageSettings(), getCurrentSession()]);
@@ -14,6 +24,8 @@ export default async function LandingPage() {
 
   return (
     <div className="pb-20">
+      <JsonLd data={getOrganizationJsonLd()} />
+      <JsonLd data={getWebsiteJsonLd()} />
       <section className="page-grid py-20 md:py-32">
         <div className="mx-auto max-w-3xl space-y-8 text-center">
           <FadeIn>
