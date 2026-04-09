@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FocusModal } from "@/components/ui/focus-modal";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { cn } from "@/lib/utils";
@@ -74,53 +75,33 @@ export async function AdminUsersWorkspace({ roleFilter }: { roleFilter: UsersWor
         description={copy.description}
       />
       <div className="flex flex-wrap gap-2">
-        {roleTabs.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={cn(
-              "rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200",
-              tab.role === roleFilter
-                ? "border-[var(--color-brand)] bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
-                : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-brand)] hover:text-[var(--color-brand)]",
-            )}
+        <div className="flex flex-wrap gap-2">
+          {roleTabs.map((tab) => (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={cn(
+                "rounded-full border px-4 py-2 text-sm font-semibold transition-colors duration-200",
+                tab.role === roleFilter
+                  ? "border-[var(--color-brand)] bg-[var(--color-brand-soft)] text-[var(--color-brand)]"
+                  : "border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-brand)] hover:text-[var(--color-brand)]",
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
+        <div className="ml-auto">
+          <FocusModal
+            triggerLabel="Add user"
+            title="Add user"
+            description="Create a student, instructor, or admin account from one focused popup."
+            triggerVariant="primary"
           >
-            {tab.label}
-          </Link>
-        ))}
-      </div>
-      <details className="group">
-        <Card className="space-y-0 p-0">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-[28px] px-6 py-5 marker:content-none">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Add account</h2>
-              <p className="text-sm leading-7 text-[var(--color-text-muted)]">
-                Click to open the user form and create a student, instructor, or admin account.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="rounded-full bg-[var(--color-brand)] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(35,96,93,0.18)]">
-                Add account
-              </span>
-              <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-white text-[var(--color-text)] shadow-sm transition-transform duration-200 group-open:rotate-180">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-                  <path
-                    d="m6 9 6 6 6-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-              </span>
-            </div>
-          </summary>
-          <div className="border-t border-[var(--color-border)] px-6 py-5">
             <CreateManagedUserForm />
-          </div>
-        </Card>
-      </details>
+          </FocusModal>
+        </div>
+      </div>
       <div className="space-y-4">
         {users.length === 0 ? (
           <Card className="p-6">
