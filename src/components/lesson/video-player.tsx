@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { WatermarkOverlay } from "@/components/lesson/watermark-overlay";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { messages } from "@/messages";
-import { WatermarkOverlay } from "@/components/lesson/watermark-overlay";
 
 type VideoPlayerProps = {
   assetId?: string | null;
@@ -22,6 +22,15 @@ type VideoPlayerProps = {
   } | null;
 };
 
+type PlaybackSource = {
+  provider?: "kinescope" | "stream";
+  url: string;
+  videoId?: string;
+};
+
+type KinescopeFactory = Awaited<ReturnType<typeof import("@kinescope/player-iframe-api-loader").load>>;
+type KinescopePlayer = Awaited<ReturnType<KinescopeFactory["create"]>>;
+
 export function VideoPlayer({
   assetId,
   lessonId,
@@ -33,16 +42,37 @@ export function VideoPlayer({
   watermark,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
+  const kinescopePlayerRef = useRef<KinescopePlayer | null>(null);
+  const currentTimeRef = useRef(initialPositionSeconds);
+
+  const [playbackSource, setPlaybackSource] = useState<PlaybackSource | null>(null);
   const [loading, setLoading] = useState(false);
+  const [playerBooting, setPlayerBooting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const persistProgress = useCallback(async (completed = false) => {
-    const currentTime = Math.floor(videoRef.current?.currentTime ?? 0);
+  const getCurrentPositionSeconds = useCallback(async () => {
+    if (kinescopePlayerRef.current) {
+      try {
+        const currentTime = Math.floor(await kinescopePlayerRef.current.getCurrentTime());
+        currentTimeRef.current = currentTime;
+        return currentTime;
+      } catch {
+        return currentTimeRef.current;
+      }
+    }
 
+    const currentTime = Math.floor(videoRef.current?.currentTime ?? currentTimeRef.current ?? 0);
+    currentTimeRef.current = currentTime;
+    return currentTime;
+  }, []);
+
+  const persistProgress = useCallback(async (completed = false) => {
     if (!canPlay || !assetId) {
       return;
     }
+
+    const currentTime = await getCurrentPositionSeconds();
 
     try {
       await fetch(`/api/student/lessons/${lessonId}/progress`, {
@@ -60,19 +90,26 @@ export function VideoPlayer({
     } catch {
       // Silent failure keeps playback uninterrupted.
     }
-  }, [assetId, canPlay, courseId, lessonId]);
+  }, [assetId, canPlay, courseId, getCurrentPositionSeconds, lessonId]);
+
+  useEffect(() => {
+    currentTimeRef.current = initialPositionSeconds;
+  }, [assetId, initialPositionSeconds]);
 
   useEffect(() => {
     if (!assetId || !canPlay) {
+      setPlaybackSource(null);
       return;
     }
 
     let active = true;
 
-    async function loadPlaybackUrl() {
+    async function loadPlaybackSource() {
       try {
         setLoading(true);
         setLoadError(null);
+        setPlaybackSource(null);
+
         const response = await fetch(`/api/media/video/${assetId}/signed`, {
           method: "GET",
           cache: "no-store",
@@ -83,13 +120,17 @@ export function VideoPlayer({
           throw new Error(payload?.message ?? messages.upload.playbackFailed);
         }
 
-        const payload = (await response.json()) as { url: string };
+        const payload = (await response.json()) as PlaybackSource;
 
         if (!active) {
           return;
         }
 
-        setPlaybackUrl(payload.url);
+        setPlaybackSource({
+          provider: payload.provider ?? "stream",
+          url: payload.url,
+          videoId: payload.videoId,
+        });
       } catch (error) {
         if (!active) {
           return;
@@ -104,7 +145,7 @@ export function VideoPlayer({
       }
     }
 
-    loadPlaybackUrl().catch(() => undefined);
+    loadPlaybackSource().catch(() => undefined);
 
     return () => {
       active = false;
@@ -112,7 +153,7 @@ export function VideoPlayer({
   }, [assetId, canPlay]);
 
   useEffect(() => {
-    if (!videoRef.current || initialPositionSeconds <= 0) {
+    if (!videoRef.current || initialPositionSeconds <= 0 || playbackSource?.provider === "kinescope") {
       return;
     }
 
@@ -120,14 +161,139 @@ export function VideoPlayer({
 
     function handleLoadedMetadata() {
       video.currentTime = initialPositionSeconds;
+      currentTimeRef.current = initialPositionSeconds;
     }
 
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
     return () => video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-  }, [initialPositionSeconds]);
+  }, [initialPositionSeconds, playbackSource?.provider]);
 
   useEffect(() => {
-    if (!playbackUrl || !canPlay) {
+    const hostElement = playerHostRef.current;
+    const source = playbackSource;
+
+    if (!source || source.provider !== "kinescope" || !canPlay || !hostElement) {
+      if (hostElement) {
+        hostElement.innerHTML = "";
+      }
+
+      kinescopePlayerRef.current = null;
+      setPlayerBooting(false);
+      return;
+    }
+
+    let active = true;
+    let player: KinescopePlayer | null = null;
+    let mountNode: HTMLDivElement | null = null;
+
+    async function mountKinescopePlayer() {
+      try {
+        setPlayerBooting(true);
+        const { load } = await import("@kinescope/player-iframe-api-loader");
+        const factory = await load();
+        const mountedHost = hostElement;
+        const currentSource = source;
+
+        if (!active || !mountedHost || !currentSource) {
+          return;
+        }
+
+        mountedHost.innerHTML = "";
+        mountNode = document.createElement("div");
+        mountNode.className = "h-full w-full";
+        mountedHost.appendChild(mountNode);
+
+        player = await factory.create(mountNode, {
+          url: currentSource.url,
+          size: {
+            width: "100%",
+            height: "100%",
+          },
+          behavior: {
+            preload: "metadata",
+            playsInline: true,
+            autoPause: true,
+            localStorage: false,
+          },
+          ui: {
+            controls: true,
+            playbackRateButton: false,
+            screenshotButton: false,
+          },
+          settings: {
+            externalId: lessonId,
+          },
+          keepElement: true,
+        });
+
+        if (!active) {
+          await player.destroy().catch(() => undefined);
+          return;
+        }
+
+        kinescopePlayerRef.current = player;
+
+        const syncInitialSeek = () => {
+          if (initialPositionSeconds > 0) {
+            currentTimeRef.current = initialPositionSeconds;
+            player?.seekTo(initialPositionSeconds).catch(() => undefined);
+          }
+
+          setPlayerBooting(false);
+        };
+
+        const handleTimeUpdate = ((event) => {
+          if (event.data && typeof event.data === "object" && "currentTime" in event.data) {
+            currentTimeRef.current = Math.floor(Number(event.data.currentTime) || 0);
+          }
+        }) as Parameters<KinescopePlayer["on"]>[1];
+
+        const handleEnded = () => {
+          persistProgress(true).catch(() => undefined);
+          toast.success("Lesson marked as completed.");
+        };
+
+        const handleError = () => {
+          if (!active) {
+            return;
+          }
+
+          setPlayerBooting(false);
+          setLoadError(messages.upload.playbackFailed);
+        };
+
+        player.on(player.Events.Loaded, syncInitialSeek);
+        player.on(player.Events.Ready, syncInitialSeek);
+        player.on(player.Events.TimeUpdate, handleTimeUpdate);
+        player.on(player.Events.Ended, handleEnded);
+        player.on(player.Events.Error, handleError);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : messages.upload.playbackFailed;
+        setLoadError(message);
+        setPlayerBooting(false);
+      }
+    }
+
+    mountKinescopePlayer().catch(() => undefined);
+
+    return () => {
+      active = false;
+      kinescopePlayerRef.current = null;
+
+      if (player) {
+        player.destroy().catch(() => undefined);
+      }
+
+      hostElement.innerHTML = "";
+    };
+  }, [canPlay, initialPositionSeconds, lessonId, persistProgress, playbackSource]);
+
+  useEffect(() => {
+    if (!playbackSource || !canPlay) {
       return;
     }
 
@@ -140,7 +306,7 @@ export function VideoPlayer({
     }, 15_000);
 
     return () => window.clearInterval(interval);
-  }, [canPlay, playbackUrl, persistProgress]);
+  }, [canPlay, playbackSource, persistProgress]);
 
   if (!assetId || status === "PROCESSING" || status === "QUEUED" || status === "UPLOADING") {
     return (
@@ -179,11 +345,16 @@ export function VideoPlayer({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[#091311] shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+    <div
+      className="relative overflow-hidden rounded-[32px] border border-[var(--color-border)] bg-[#091311] shadow-[0_24px_80px_rgba(15,23,42,0.22)]"
+      onContextMenu={(event) => event.preventDefault()}
+    >
       {watermark ? <WatermarkOverlay fullName={watermark.fullName} userId={watermark.userId} /> : null}
       <div className="aspect-video w-full">
-        {loading ? (
+        {loading || playerBooting ? (
           <div className="flex h-full items-center justify-center text-sm font-medium text-white/70">Preparing secure playback...</div>
+        ) : playbackSource?.provider === "kinescope" ? (
+          <div ref={playerHostRef} className="h-full w-full [&_iframe]:h-full [&_iframe]:w-full" />
         ) : (
           <video
             ref={videoRef}
@@ -192,7 +363,10 @@ export function VideoPlayer({
             controlsList="nodownload noplaybackrate"
             playsInline
             preload="metadata"
-            src={playbackUrl ?? undefined}
+            src={playbackSource?.url ?? undefined}
+            onTimeUpdate={() => {
+              currentTimeRef.current = Math.floor(videoRef.current?.currentTime ?? 0);
+            }}
             onEnded={() => {
               persistProgress(true).catch(() => undefined);
               toast.success("Lesson marked as completed.");

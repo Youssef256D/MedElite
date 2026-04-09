@@ -1310,6 +1310,7 @@ export type Database = {
           fileName: string
           height: number | null
           id: string
+          kinescope_id: string | null
           lessonId: string
           mimeType: string
           originalUploadJobId: string | null
@@ -1332,6 +1333,7 @@ export type Database = {
           fileName: string
           height?: number | null
           id: string
+          kinescope_id?: string | null
           lessonId: string
           mimeType: string
           originalUploadJobId?: string | null
@@ -1354,6 +1356,7 @@ export type Database = {
           fileName?: string
           height?: number | null
           id?: string
+          kinescope_id?: string | null
           lessonId?: string
           mimeType?: string
           originalUploadJobId?: string | null

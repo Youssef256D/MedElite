@@ -5,6 +5,7 @@ import {
   createId,
   database,
   DeviceStatus,
+  execute,
   many,
   maybeOne,
   type Role,
@@ -35,6 +36,9 @@ type SessionWithRelations = Tables<"Session"> & {
   user: UserWithRelations;
   device: Tables<"Device">;
 };
+
+const MAX_CONCURRENT_SESSIONS = 2;
+const STALE_SESSION_WINDOW_MS = 30 * 60 * 1000;
 
 export type AuthenticatedUser = Awaited<ReturnType<typeof requireAuthenticatedUser>>;
 export type CurrentSession = Awaited<ReturnType<typeof getCurrentSession>>;
@@ -203,6 +207,30 @@ export async function clearSessionCookie() {
 async function createSessionForUser(userId: string) {
   const [metadata, limits] = await Promise.all([getRequestMetadata(), getEffectiveLimits(userId)]);
   const now = new Date();
+  const staleThreshold = new Date(now.getTime() - STALE_SESSION_WINDOW_MS).toISOString();
+  const sessionLimit = Math.min(limits.sessionLimit, MAX_CONCURRENT_SESSIONS);
+
+  const staleSessions = await many(
+    database
+      .from("Session")
+      .select("id")
+      .eq("userId", userId)
+      .or(`expiresAt.lt.${now.toISOString()},lastSeenAt.lt.${staleThreshold}`),
+    "Stale sessions could not be loaded.",
+  );
+
+  if (staleSessions.length > 0) {
+    await execute(
+      database
+        .from("Session")
+        .delete()
+        .in(
+          "id",
+          staleSessions.map((session) => session.id),
+        ),
+      "Stale sessions could not be cleared.",
+    );
+  }
 
   const existingDevice = await maybeOne(
     database
@@ -222,7 +250,8 @@ async function createSessionForUser(userId: string) {
         .eq("userId", userId)
         .eq("status", SessionStatus.ACTIVE)
         .is("revokedAt", null)
-        .gt("expiresAt", now.toISOString()),
+        .gt("expiresAt", now.toISOString())
+        .gt("lastSeenAt", staleThreshold),
       "Session count could not be loaded.",
     ),
     countRows(
@@ -252,7 +281,7 @@ async function createSessionForUser(userId: string) {
     throw new AppError(messages.devices.limitReached, "DEVICE_LIMIT_REACHED", 403);
   }
 
-  if (activeSessionCount >= limits.sessionLimit) {
+  if (activeSessionCount >= sessionLimit) {
     await createSuspiciousEvent({
       userId,
       type: "SESSION_LIMIT_EXCEEDED",
@@ -260,12 +289,16 @@ async function createSessionForUser(userId: string) {
       reason: "Session limit reached during sign-in.",
       metadata: {
         activeSessionCount,
-        sessionLimit: limits.sessionLimit,
+        sessionLimit,
         ipAddress: metadata.ipAddress,
       },
     });
 
-    throw new AppError(messages.devices.limitReached, "SESSION_LIMIT_REACHED", 403);
+    throw new AppError(
+      "You already have 2 active sessions. Sign out from another device and try again.",
+      "SESSION_LIMIT_REACHED",
+      403,
+    );
   }
 
   const device =

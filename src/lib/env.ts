@@ -4,6 +4,7 @@ const serverSchema = z
   .object({
     NEXT_PUBLIC_APP_URL: z.string().url(),
     GOOGLE_SITE_VERIFICATION: z.string().min(1).optional(),
+    KINESCOPE_API_TOKEN: z.string().min(1).optional(),
     AUTH_COOKIE_NAME: z.string().min(1).default("medelite_session"),
     AUTH_SESSION_TTL_DAYS: z.coerce.number().int().positive().default(14),
     MEDIA_SIGNING_SECRET: z.string().min(16),

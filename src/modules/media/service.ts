@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 
 import { countRows, database, maybeOne } from "@/lib/database";
+import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import { storage } from "@/lib/storage";
 import { absoluteUrl } from "@/lib/utils";
@@ -11,6 +12,29 @@ import { signPlaybackToken, verifyPlaybackToken } from "@/modules/media/signing"
 import { getMediaSecuritySettings } from "@/modules/site-settings/service";
 import { createSuspiciousEvent } from "@/modules/suspicious/service";
 import { resolveLessonAccess } from "@/modules/subscriptions/service";
+
+const KINESCOPE_API_BASE_URL = "https://api.kinescope.io/v1";
+
+type KinescopeVideoPayload = {
+  data?: {
+    embed_link?: string;
+    play_link?: string;
+    hls_link?: string;
+  };
+};
+
+type PlaybackSourceResult =
+  | {
+      provider: "kinescope";
+      url: string;
+      videoId: string;
+      expiresAt: number;
+    }
+  | {
+      provider: "stream";
+      url: string;
+      expiresAt: number;
+    };
 
 function parseRangeHeader(rangeHeader: string | null, fileSize: number) {
   if (!rangeHeader?.startsWith("bytes=")) {
@@ -65,6 +89,140 @@ async function getAssetPlaybackContext(assetId: string) {
   };
 }
 
+export async function getKinescopeVideoId(lessonId: string) {
+  const lesson = await maybeOne(
+    database.from("Lesson").select("currentVideoAssetId").eq("id", lessonId).maybeSingle(),
+    "Lesson could not be loaded.",
+  );
+
+  if (!lesson) {
+    return null;
+  }
+
+  if (lesson.currentVideoAssetId) {
+    const currentAsset = await maybeOne(
+      database
+        .from("VideoAsset")
+        .select("kinescope_id")
+        .eq("id", lesson.currentVideoAssetId)
+        .maybeSingle(),
+      "Current video asset could not be loaded.",
+    );
+
+    if (currentAsset?.kinescope_id) {
+      return currentAsset.kinescope_id;
+    }
+  }
+
+  const latestAsset = await maybeOne(
+    database
+      .from("VideoAsset")
+      .select("kinescope_id")
+      .eq("lessonId", lessonId)
+      .eq("status", "READY")
+      .is("replacedAt", null)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    "Lesson video asset could not be loaded.",
+  );
+
+  return latestAsset?.kinescope_id ?? null;
+}
+
+export async function generateKinescopeEmbed(videoId: string) {
+  if (!env.KINESCOPE_API_TOKEN) {
+    throw new AppError(
+      "Kinescope playback is not configured yet. Add KINESCOPE_API_TOKEN on the server first.",
+      "CONFIGURATION_ERROR",
+      500,
+    );
+  }
+
+  const response = await fetch(`${KINESCOPE_API_BASE_URL}/videos/${encodeURIComponent(videoId)}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${env.KINESCOPE_API_TOKEN}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new AppError(
+      "Kinescope playback information could not be loaded.",
+      "PLAYBACK_DENIED",
+      502,
+      {
+        provider: "kinescope",
+        status: response.status,
+        videoId,
+      },
+    );
+  }
+
+  const payload = (await response.json()) as KinescopeVideoPayload;
+  const embedUrl = payload.data?.embed_link ?? payload.data?.play_link ?? null;
+
+  if (!embedUrl) {
+    throw new AppError("Kinescope did not return a usable embed link.", "PLAYBACK_DENIED", 502, {
+      provider: "kinescope",
+      videoId,
+    });
+  }
+
+  return {
+    videoId,
+    embedUrl,
+    playUrl: payload.data?.play_link ?? null,
+    hlsUrl: payload.data?.hls_link ?? null,
+  };
+}
+
+async function verifyEnrollmentForPlayback(input: {
+  userId: string;
+  courseId: string;
+}) {
+  const enrollment = await maybeOne(
+    database
+      .from("Enrollment")
+      .select("id, status")
+      .eq("userId", input.userId)
+      .eq("courseId", input.courseId)
+      .in("status", ["ACTIVE", "COMPLETED"])
+      .maybeSingle(),
+    "Enrollment could not be verified for video playback.",
+  );
+
+  if (!enrollment) {
+    throw new AppError("You need an approved enrollment before this lesson can be opened.", "PLAYBACK_DENIED", 403);
+  }
+
+  return enrollment;
+}
+
+async function issueLegacyPlaybackUrl(input: {
+  assetId: string;
+  userId?: string;
+  sessionId?: string;
+  playbackUrlTtlSeconds: number;
+}): Promise<PlaybackSourceResult> {
+  const expiresAt = Date.now() + input.playbackUrlTtlSeconds * 1000;
+  const token = signPlaybackToken({
+    assetId: input.assetId,
+    exp: expiresAt,
+    subjectType: input.userId ? "authenticated" : "guest",
+    userId: input.userId,
+    sessionId: input.sessionId,
+  });
+
+  return {
+    provider: "stream",
+    url: absoluteUrl(`/api/media/video/${input.assetId}/stream?token=${encodeURIComponent(token)}`),
+    expiresAt,
+  };
+}
+
 export async function issuePlaybackUrl(assetId: string) {
   const [session, securitySettings, asset] = await Promise.all([
     getCurrentSession(),
@@ -92,18 +250,45 @@ export async function issuePlaybackUrl(assetId: string) {
     throw new AppError(access.message ?? "You do not have access to this lesson yet.", "PLAYBACK_DENIED", 403);
   }
 
-  const expiresAt = Date.now() + securitySettings.playbackUrlTtlSeconds * 1000;
-  const token = signPlaybackToken({
-    assetId,
-    exp: expiresAt,
-    subjectType: session ? "authenticated" : "guest",
-    userId: session?.user.id,
-    sessionId: session?.id,
-  });
+  if (session?.user.role === "STUDENT" && access.mode === "enrolled") {
+    await verifyEnrollmentForPlayback({
+      userId: session.user.id,
+      courseId: asset.lesson.course.id,
+    });
+  }
+
+  const kinescopeVideoId = asset.kinescope_id ?? (await getKinescopeVideoId(asset.lessonId));
+
+  if (!kinescopeVideoId) {
+    return issueLegacyPlaybackUrl({
+      assetId,
+      userId: session?.user.id,
+      sessionId: session?.id,
+      playbackUrlTtlSeconds: securitySettings.playbackUrlTtlSeconds,
+    });
+  }
+
+  const embed = await generateKinescopeEmbed(kinescopeVideoId);
+
+  if (session?.user.id) {
+    await recordAuditLogFromRequest({
+      actorUserId: session.user.id,
+      entityType: "VideoAsset",
+      entityId: assetId,
+      action: "video.kinescope.access_issued",
+      message: "A Kinescope playback session was issued for a lesson video.",
+      metadata: {
+        lessonId: asset.lessonId,
+        kinescopeVideoId,
+      },
+    });
+  }
 
   return {
-    url: absoluteUrl(`/api/media/video/${assetId}/stream?token=${encodeURIComponent(token)}`),
-    expiresAt,
+    provider: "kinescope",
+    url: embed.embedUrl,
+    videoId: kinescopeVideoId,
+    expiresAt: Date.now() + securitySettings.playbackUrlTtlSeconds * 1000,
   };
 }
 
