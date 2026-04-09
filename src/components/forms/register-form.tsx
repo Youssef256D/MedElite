@@ -34,7 +34,7 @@ export function RegisterForm() {
         <label className="text-sm font-semibold text-[var(--color-text)]" htmlFor="email">
           Email
         </label>
-        <Input id="email" name="email" type="email" placeholder="student@medelite.com" required />
+        <Input id="email" name="email" type="email" placeholder="student@medeliteacademy.com" required />
       </div>
       <div className="space-y-2">
         <label className="text-sm font-semibold text-[var(--color-text)]" htmlFor="studentYear">

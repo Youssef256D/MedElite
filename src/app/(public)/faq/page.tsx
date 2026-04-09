@@ -10,7 +10,7 @@ export default async function FaqPage() {
       <SectionHeading
         eyebrow="FAQ"
         title="Frequently asked questions"
-        description="Quick answers to common questions about MedElite."
+        description="Quick answers to common questions about MedElite Academy."
       />
       <div className="space-y-4">
         {homepage.faqs.map((item: { question: string; answer: string }) => (

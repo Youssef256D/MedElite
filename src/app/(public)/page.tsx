@@ -45,7 +45,7 @@ export default async function LandingPage() {
       <FadeIn delay={0.2}>
         <section className="page-grid py-16 md:py-20">
           <div className="rounded-[32px] bg-[var(--color-text)] px-6 py-14 md:px-12 md:py-20">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-brand-soft)]">Why MedElite</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-brand-soft)]">Why MedElite Academy</p>
             <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white md:text-4xl">
               Everything you need to teach and learn medicine online
             </h2>
@@ -87,7 +87,7 @@ export default async function LandingPage() {
             <p className="mx-auto max-w-lg text-sm leading-7 text-[var(--color-text-muted)]">
               {session
                 ? "Your session is active, so you can jump straight back into your dashboard."
-                : "Join MedElite today and get access to high-quality medical courses created by experienced professionals."}
+                : "Join MedElite Academy today and get access to high-quality medical courses created by experienced professionals."}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href={primaryHref}>

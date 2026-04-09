@@ -14,7 +14,7 @@ export default function LoginPage() {
       </div>
       <LoginForm />
       <p className="text-sm text-[var(--color-text-muted)]">
-        New to MedElite?{" "}
+        New to MedElite Academy?{" "}
         <Link href="/register" className="font-semibold text-[var(--color-brand)]">
           Create an account
         </Link>

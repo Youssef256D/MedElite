@@ -9,7 +9,7 @@ export function PublicFooter() {
         <div className="space-y-4">
           <BrandMark />
           <p className="max-w-xl text-sm leading-7 text-[var(--color-text-muted)]">
-            Quality medical education for students and instructors.
+            Quality medical education from MedElite Academy for students and instructors.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)]">

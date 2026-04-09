@@ -7,7 +7,7 @@ export default function RegisterPage() {
     <div className="space-y-6">
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--color-brand)]">Create account</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-[var(--color-text)]">Start your MedElite access</h1>
+        <h1 className="text-4xl font-semibold tracking-tight text-[var(--color-text)]">Start your MedElite Academy access</h1>
         <p className="text-sm leading-7 text-[var(--color-text-muted)]">
           Student accounts begin with a short trial subscription so you can experience the full premium learning flow.
         </p>

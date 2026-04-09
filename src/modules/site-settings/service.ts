@@ -57,7 +57,7 @@ export const defaultSiteSettings = [
         {
           name: "Dr. Lina Haroun",
           role: "Internal Medicine Resident",
-          quote: "MedElite gives our cohort the structure of a premium academy with the pace of modern clinical learning.",
+          quote: "MedElite Academy gives our cohort the structure of a premium academy with the pace of modern clinical learning.",
         },
         {
           name: "Dr. Youssef Adel",
@@ -76,8 +76,8 @@ export const defaultSiteSettings = [
           answer: "Yes. Uploads support resumable chunking, progress tracking, retries, and background processing.",
         },
         {
-          question: "Can MedElite stop all screen recording?",
-          answer: "No web platform can guarantee perfect prevention. MedElite uses practical deterrents such as signed playback, session limits, audit trails, and dynamic forensic watermarking.",
+          question: "Can MedElite Academy stop all screen recording?",
+          answer: "No web platform can guarantee perfect prevention. MedElite Academy uses practical deterrents such as signed playback, session limits, audit trails, and dynamic forensic watermarking.",
         },
       ],
     },
@@ -87,8 +87,8 @@ export const defaultSiteSettings = [
     group: "site",
     label: "Branding",
     value: {
-      platformName: "MedElite",
-      supportEmail: "support@medelite.local",
+      platformName: "MedElite Academy",
+      supportEmail: "support@medeliteacademy.com",
       accent: "#2d6b6a",
       accentSoft: "#dcefed",
     },

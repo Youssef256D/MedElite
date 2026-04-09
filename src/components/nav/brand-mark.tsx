@@ -8,7 +8,7 @@ export function BrandMark() {
       </div>
       <div>
         <p className="font-[family:var(--font-display)] text-xl font-semibold tracking-tight text-[var(--color-text)]">
-          MedElite
+          MedElite Academy
         </p>
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--color-text-subtle)]">Medical Education</p>
       </div>

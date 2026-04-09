@@ -8,16 +8,16 @@ export default function AboutPage() {
   return (
     <div className="page-grid space-y-10 py-16">
       <SectionHeading
-        eyebrow="About MedElite"
+        eyebrow="About MedElite Academy"
         title="A platform built for medical education"
-        description="MedElite connects medical instructors with students through a focused, distraction-free online learning experience."
+        description="MedElite Academy connects medical instructors with students through a focused, distraction-free online learning experience."
       />
 
       <div className="space-y-4">
         <Card className="space-y-3">
           <h3 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Our mission</h3>
           <p className="text-sm leading-7 text-[var(--color-text-muted)]">
-            We believe medical education should be accessible, well-organized, and built around trust between instructors and students. MedElite gives instructors the tools to share their knowledge and gives students a clear path to learn.
+            We believe medical education should be accessible, well-organized, and built around trust between instructors and students. MedElite Academy gives instructors the tools to share their knowledge and gives students a clear path to learn.
           </p>
         </Card>
       </div>
@@ -40,7 +40,7 @@ export default function AboutPage() {
       <Card className="space-y-4 text-center">
         <h3 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Interested?</h3>
         <p className="mx-auto max-w-lg text-sm leading-7 text-[var(--color-text-muted)]">
-          Whether you want to learn or teach, MedElite is the place to start.
+          Whether you want to learn or teach, MedElite Academy is the place to start.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link href="/register">

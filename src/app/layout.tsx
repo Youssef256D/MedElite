@@ -5,11 +5,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "MedElite",
-    template: "%s | MedElite",
+    default: "MedElite Academy",
+    template: "%s | MedElite Academy",
   },
   description:
-    "A premium medical education platform for modern students, instructors, and admin teams.",
+    "MedElite Academy is a premium medical education platform for modern students, instructors, and admin teams.",
 };
 
 export default function RootLayout({
