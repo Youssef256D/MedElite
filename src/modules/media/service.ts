@@ -179,6 +179,82 @@ export async function generateKinescopeEmbed(videoId: string) {
   };
 }
 
+export async function pushVideoToKinescope(input: {
+  storageKey: string;
+  title: string;
+}): Promise<string> {
+  if (!env.KINESCOPE_API_TOKEN) {
+    throw new AppError(
+      "Kinescope is not configured. Set KINESCOPE_API_TOKEN to enable video delivery.",
+      "CONFIGURATION_ERROR",
+      500,
+    );
+  }
+
+  const createRes = await fetch(`${KINESCOPE_API_BASE_URL}/videos`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.KINESCOPE_API_TOKEN}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ title: input.title }),
+    cache: "no-store",
+  });
+
+  if (!createRes.ok) {
+    const text = await createRes.text().catch(() => "");
+    throw new AppError(
+      "Failed to create a video entry in Kinescope.",
+      "INTERNAL_ERROR",
+      502,
+      { status: createRes.status, body: text },
+    );
+  }
+
+  const createPayload = (await createRes.json()) as { data?: { id?: string; upload_link?: string } };
+  const videoId = createPayload.data?.id;
+  const uploadLink = createPayload.data?.upload_link;
+
+  if (!videoId || !uploadLink) {
+    throw new AppError(
+      "Kinescope did not return a video ID or upload link.",
+      "INTERNAL_ERROR",
+      502,
+    );
+  }
+
+  const stat = await storage.statObject(input.storageKey);
+  if (!stat) {
+    throw new AppError("Video file not found in storage.", "NOT_FOUND", 404);
+  }
+
+  const { stream } = await storage.createReadStream(input.storageKey);
+  const body = Readable.toWeb(stream) as ReadableStream;
+
+  const uploadRes = await fetch(uploadLink, {
+    method: "PUT",
+    // @ts-expect-error duplex is required for streaming request bodies in Node.js fetch
+    duplex: "half",
+    body,
+    headers: {
+      "Content-Length": String(stat.contentLength),
+    },
+  });
+
+  if (!uploadRes.ok) {
+    const text = await uploadRes.text().catch(() => "");
+    throw new AppError(
+      "Failed to upload video to Kinescope.",
+      "INTERNAL_ERROR",
+      502,
+      { status: uploadRes.status, body: text },
+    );
+  }
+
+  return videoId;
+}
+
 async function verifyEnrollmentForPlayback(input: {
   userId: string;
   courseId: string;

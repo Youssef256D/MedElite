@@ -4,6 +4,8 @@ import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
 
+import { pushVideoToKinescope } from "@/modules/media/service";
+
 import {
   LessonStatus,
   LessonVisibility,
@@ -522,6 +524,16 @@ export async function processUploadJob(uploadJobId: string): Promise<Tables<"Upl
     return null;
   }
 
+  let kinescopeId: string | null = null;
+  try {
+    kinescopeId = await pushVideoToKinescope({
+      storageKey: uploadJob.finalStorageKey,
+      title: uploadJob.fileName.replace(/\.[^/.]+$/, ""),
+    });
+  } catch (err) {
+    console.error("[upload-worker] Kinescope upload failed, falling back to stream playback:", err);
+  }
+
   await Promise.all([
     database
       .from("UploadJob")
@@ -535,6 +547,7 @@ export async function processUploadJob(uploadJobId: string): Promise<Tables<"Upl
       .from("VideoAsset")
       .update({
         status: "READY",
+        kinescope_id: kinescopeId ?? undefined,
         readyAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
