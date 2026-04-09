@@ -312,7 +312,16 @@ export async function AdminCoursesWorkspace({ viewFilter }: { viewFilter: Course
 
   return (
     <div className="space-y-8">
-      <SectionHeading eyebrow="Courses" title={copy.title} description={copy.description} />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <SectionHeading eyebrow="Courses" title={copy.title} description={copy.description} />
+        {viewFilter === "PAYMENTS" ? (
+          <form action="/api/admin/payments/export" method="get">
+            <Button type="submit" variant="secondary">
+              Download spreadsheet
+            </Button>
+          </form>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {courseTabs.map((tab) => (
