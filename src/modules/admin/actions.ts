@@ -5,8 +5,14 @@ import { z } from "zod";
 
 import { createId, database, execute, maybeOne, StudentYear, UserStatus, type Json } from "@/lib/database";
 import { AppError } from "@/lib/errors";
-import { requireRoles, revokeAllSessionsForUser } from "@/modules/auth/service";
+import {
+  createSupabaseAuthAccount,
+  requireRoles,
+  revokeAllSessionsForUser,
+  syncSupabaseAuthMetadataForUser,
+} from "@/modules/auth/service";
 import { hashPassword } from "@/modules/auth/password";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAuditLogFromRequest } from "@/modules/audit/service";
 import {
   revalidateAdminCourseWorkspacePaths,
@@ -212,39 +218,57 @@ export async function createManagedUserAction(formData: FormData) {
   const now = new Date();
   const userId = createId();
   const passwordHash = await hashPassword(payload.password);
+  const authUser = await createSupabaseAuthAccount({
+    email: normalizedEmail,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    password: payload.password,
+    role: payload.role,
+    studentYear: payload.role === "STUDENT" ? payload.studentYear ?? null : null,
+  });
 
-  await Promise.all([
-    maybeOne(
-      database
-        .from("User")
-        .insert({
-          id: userId,
-          email: normalizedEmail,
-          passwordHash,
-          firstName: payload.firstName,
-          lastName: payload.lastName,
-          role: payload.role,
-          studentYear: payload.role === "STUDENT" ? payload.studentYear ?? null : null,
-          updatedAt: now.toISOString(),
-        })
-        .select("*")
-        .maybeSingle(),
-      "User account could not be created.",
-    ),
-    maybeOne(
-      database
-        .from("Profile")
-        .insert({
-          id: createId(),
-          userId,
-          fullName: `${payload.firstName} ${payload.lastName}`,
-          updatedAt: now.toISOString(),
-        })
-        .select("id")
-        .maybeSingle(),
-      "User profile could not be created.",
-    ),
-  ]);
+  try {
+    await Promise.all([
+      maybeOne(
+        database
+          .from("User")
+          .insert({
+            id: userId,
+            authUserId: authUser.id,
+            email: normalizedEmail,
+            passwordHash,
+            emailVerifiedAt: authUser.email_confirmed_at ?? now.toISOString(),
+            firstName: payload.firstName,
+            lastName: payload.lastName,
+            role: payload.role,
+            studentYear: payload.role === "STUDENT" ? payload.studentYear ?? null : null,
+            updatedAt: now.toISOString(),
+          })
+          .select("*")
+          .maybeSingle(),
+        "User account could not be created.",
+      ),
+      maybeOne(
+        database
+          .from("Profile")
+          .insert({
+            id: createId(),
+            userId,
+            fullName: `${payload.firstName} ${payload.lastName}`,
+            updatedAt: now.toISOString(),
+          })
+          .select("id")
+          .maybeSingle(),
+        "User profile could not be created.",
+      ),
+    ]);
+  } catch (error) {
+    await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+    await database.from("InstructorProfile").delete().eq("userId", userId);
+    await database.from("Profile").delete().eq("userId", userId);
+    await database.from("User").delete().eq("id", userId);
+    throw error;
+  }
 
   if (payload.role === "STUDENT") {
     await ensureStarterSubscriptionForStudent(userId, now);
@@ -309,6 +333,8 @@ export async function updateUserAccountAction(formData: FormData) {
       .eq("id", payload.userId),
     "User account could not be updated.",
   );
+
+  await syncSupabaseAuthMetadataForUser(payload.userId);
 
   if (payload.role === "STUDENT") {
     await ensureStarterSubscriptionForStudent(payload.userId, new Date());
@@ -417,6 +443,8 @@ export async function approveInstructorAction(userId: string) {
       updatedAt: new Date().toISOString(),
     })
     .eq("id", userId);
+
+  await syncSupabaseAuthMetadataForUser(userId);
 
   if (instructorProfile) {
     await database

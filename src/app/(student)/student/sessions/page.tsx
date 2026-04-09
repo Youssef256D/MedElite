@@ -19,7 +19,7 @@ export default async function StudentSessionsPage() {
       <SectionHeading
         eyebrow="Sessions"
         title="Active sessions and devices"
-        description="You can revoke older sessions at any time. Session and device limits are enforced on the server."
+        description="You can revoke older sessions at any time. Supabase Auth secures sign-in, and MedElite Academy still enforces device and session limits on the server."
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="space-y-4">

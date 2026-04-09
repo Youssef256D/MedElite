@@ -1,4 +1,5 @@
 import { createId, database } from "../src/lib/database";
+import { supabaseAdmin } from "../src/lib/supabase/server";
 import { hashPassword } from "../src/modules/auth/password";
 import { ensureDefaultSiteSettings } from "../src/modules/site-settings/service";
 
@@ -60,6 +61,47 @@ async function insertRows(table: string, rows: Record<string, unknown>[]) {
 
   if (error) {
     throw error;
+  }
+}
+
+async function findAuthUserByEmail(email: string) {
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const user = data.users.find((item) => item.email?.toLowerCase() === email.toLowerCase());
+
+    if (user) {
+      return user;
+    }
+
+    if (data.users.length < 200) {
+      return null;
+    }
+
+    page += 1;
+  }
+}
+
+async function deleteSeedAuthUsers(emails: string[]) {
+  for (const email of emails) {
+    const existingUser = await findAuthUserByEmail(email);
+
+    if (existingUser) {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(existingUser.id);
+
+      if (error) {
+        throw error;
+      }
+    }
   }
 }
 
@@ -141,12 +183,41 @@ async function main() {
 
   const adminUser = users[3];
 
+  await deleteSeedAuthUsers(users.map((user) => user.email));
+
+  const authUsers = await Promise.all(
+    users.map(async (user) => {
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        email: user.email,
+        password_hash: passwordHash,
+        email_confirm: true,
+        user_metadata: {
+          first_name: user.firstName,
+          last_name: user.lastName,
+          full_name: `${user.firstName} ${user.lastName}`,
+        },
+        app_metadata: {
+          role: user.role,
+          student_year: user.studentYear ?? null,
+        },
+      });
+
+      if (error || !data.user) {
+        throw error ?? new Error(`Could not create auth user for ${user.email}`);
+      }
+
+      return data.user;
+    }),
+  );
+
   await insertRows(
     "User",
-    users.map((user) => ({
+    users.map((user, index) => ({
       id: user.id,
+      authUserId: authUsers[index].id,
       email: user.email,
       passwordHash,
+      emailVerifiedAt: authUsers[index].email_confirmed_at ?? now.toISOString(),
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,

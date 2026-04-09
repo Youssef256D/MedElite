@@ -28,7 +28,7 @@ export default async function AuthLayout({ children }: { children: ReactNode }) 
               Calm, secure entry into premium medical learning.
             </h1>
             <p className="text-lg leading-9 text-[var(--color-text-muted)]">
-              Sessions are hashed and server-enforced, device limits are monitored, and access decisions remain on the backend.
+              Supabase Auth secures every sign-in, while MedElite Academy keeps roles, access rules, and device limits enforced on the backend.
             </p>
           </div>
         </div>

@@ -1249,6 +1249,7 @@ export type Database = {
       }
       User: {
         Row: {
+          authUserId: string | null
           createdAt: string
           deviceLimitOverride: number | null
           email: string
@@ -1266,6 +1267,7 @@ export type Database = {
           updatedAt: string
         }
         Insert: {
+          authUserId?: string | null
           createdAt?: string
           deviceLimitOverride?: number | null
           email: string
@@ -1283,6 +1285,7 @@ export type Database = {
           updatedAt: string
         }
         Update: {
+          authUserId?: string | null
           createdAt?: string
           deviceLimitOverride?: number | null
           email?: string
