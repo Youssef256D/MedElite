@@ -96,6 +96,14 @@ const enrollmentReviewSchema = z.object({
   reviewNotes: z.string().optional(),
 });
 
+function revalidateAdminCoursePaths() {
+  revalidatePath("/admin/courses");
+  revalidatePath("/admin/courses/all");
+  revalidatePath("/admin/courses/course-approvals");
+  revalidatePath("/admin/courses/payments");
+  revalidatePath("/admin/courses/payment-approvals");
+}
+
 async function ensureStarterSubscriptionForStudent(userId: string, now: Date) {
   const existingSubscription = await maybeOne(
     database.from("Subscription").select("id").eq("userId", userId).maybeSingle(),
@@ -489,7 +497,7 @@ export async function approveCourseAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/courses");
+  revalidateAdminCoursePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath("/student/dashboard");
   revalidatePath(`/student/course/${course.slug}`);
@@ -533,7 +541,7 @@ export async function requestCourseChangesAction(formData: FormData) {
     message: "Course approval was sent back for revisions.",
   });
 
-  revalidatePath("/admin/courses");
+  revalidateAdminCoursePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath(`/student/course/${course.slug}`);
   revalidatePath("/instructor/courses");
@@ -594,7 +602,7 @@ export async function approveEnrollmentAction(formData: FormData) {
     message: "A course enrollment request was approved.",
   });
 
-  revalidatePath("/admin/courses");
+  revalidateAdminCoursePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath("/student/courses");
   revalidatePath(`/student/course/${course.slug}`);
@@ -644,7 +652,7 @@ export async function rejectEnrollmentAction(formData: FormData) {
     message: "A course enrollment request was rejected.",
   });
 
-  revalidatePath("/admin/courses");
+  revalidateAdminCoursePaths();
   revalidatePath("/admin/dashboard");
   revalidatePath("/student/courses");
   if (course) {

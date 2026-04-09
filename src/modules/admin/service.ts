@@ -1,4 +1,13 @@
-import { countRows, database, groupBy, indexById, many, type Role, type Tables } from "@/lib/database";
+import {
+  countRows,
+  database,
+  groupBy,
+  indexById,
+  many,
+  type EnrollmentStatus,
+  type Role,
+  type Tables,
+} from "@/lib/database";
 
 type UserWithRelations = Tables<"User"> & {
   profile: Tables<"Profile"> | null;
@@ -285,17 +294,7 @@ export async function getAdminCourses() {
   });
 }
 
-export async function getAdminEnrollmentRequests() {
-  const enrollments = await many(
-    database
-      .from("Enrollment")
-      .select("*")
-      .eq("status", "PENDING")
-      .order("paymentSubmittedAt", { ascending: false })
-      .order("createdAt", { ascending: false }),
-    "Enrollment requests could not be loaded.",
-  );
-
+async function decorateEnrollments(enrollments: Tables<"Enrollment">[]) {
   if (enrollments.length === 0) {
     return [];
   }
@@ -320,6 +319,41 @@ export async function getAdminEnrollmentRequests() {
     course: courseMap.get(enrollment.courseId) ?? null,
     reviewedBy: enrollment.reviewedById ? reviewerMap.get(enrollment.reviewedById) ?? null : null,
   }));
+}
+
+export async function getAdminEnrollments(input?: {
+  statuses?: EnrollmentStatus[];
+  paymentOnly?: boolean;
+}) {
+  const enrollments = await many(
+    database
+      .from("Enrollment")
+      .select("*")
+      .order("paymentSubmittedAt", { ascending: false })
+      .order("createdAt", { ascending: false }),
+    "Enrollments could not be loaded.",
+  );
+
+  const filteredEnrollments = enrollments.filter((enrollment) => {
+    if (input?.statuses && !input.statuses.includes(enrollment.status)) {
+      return false;
+    }
+
+    if (input?.paymentOnly && !enrollment.paymentMethod && !enrollment.paymentScreenshotStorageKey) {
+      return false;
+    }
+
+    return true;
+  });
+
+  return decorateEnrollments(filteredEnrollments);
+}
+
+export async function getAdminEnrollmentRequests() {
+  return getAdminEnrollments({
+    statuses: ["PENDING"],
+    paymentOnly: true,
+  });
 }
 
 export async function getAdminUploadJobs() {

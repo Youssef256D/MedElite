@@ -8,7 +8,9 @@ import { createManagedUserAction } from "@/modules/admin/actions";
 import { getStudentYearLabel, studentYearOptions } from "@/modules/courses/constants";
 
 const selectClassName =
-  "h-12 rounded-2xl border border-[var(--color-border)] bg-white px-4 text-sm text-[var(--color-text)]";
+  "h-12 w-full rounded-2xl border border-[var(--color-border)] bg-white px-4 text-sm text-[var(--color-text)]";
+
+const fieldClassName = "flex w-full flex-col gap-2";
 
 const manageableRoleOptions = [
   { value: "STUDENT", label: "Student" },
@@ -24,27 +26,27 @@ export function CreateManagedUserForm() {
   return (
     <form action={createManagedUserAction} className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-2">
-        <label className="space-y-2">
+        <label className={fieldClassName}>
           <span className="text-sm font-medium text-[var(--color-text)]">First name</span>
           <Input name="firstName" placeholder="First name" required />
         </label>
-        <label className="space-y-2">
+        <label className={fieldClassName}>
           <span className="text-sm font-medium text-[var(--color-text)]">Last name</span>
           <Input name="lastName" placeholder="Last name" required />
         </label>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <label className="space-y-2">
+        <label className={fieldClassName}>
           <span className="text-sm font-medium text-[var(--color-text)]">Email</span>
           <Input name="email" type="email" placeholder="name@example.com" required />
         </label>
-        <label className="space-y-2">
+        <label className={fieldClassName}>
           <span className="text-sm font-medium text-[var(--color-text)]">Password</span>
           <Input name="password" type="password" placeholder="Create a password" required />
         </label>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <label className="space-y-2">
+        <label className={fieldClassName}>
           <span className="text-sm font-medium text-[var(--color-text)]">Role</span>
           <select
             name="role"
@@ -60,7 +62,7 @@ export function CreateManagedUserForm() {
           </select>
         </label>
         {role === "STUDENT" ? (
-          <label className="space-y-2">
+          <label className={fieldClassName}>
             <span className="text-sm font-medium text-[var(--color-text)]">Student year</span>
             <select name="studentYear" defaultValue="YEAR_1" className={selectClassName}>
               {studentYearOptions.map((year) => (
@@ -76,11 +78,11 @@ export function CreateManagedUserForm() {
       </div>
       {role === "INSTRUCTOR" ? (
         <div className="grid gap-4 xl:grid-cols-2">
-          <label className="space-y-2">
+          <label className={fieldClassName}>
             <span className="text-sm font-medium text-[var(--color-text)]">Instructor title</span>
             <Input name="instructorTitle" placeholder="Instructor, Professor, Doctor..." />
           </label>
-          <label className="space-y-2">
+          <label className={fieldClassName}>
             <span className="text-sm font-medium text-[var(--color-text)]">Instructor specialty</span>
             <Input name="instructorSpecialty" placeholder="Medical Education" />
           </label>

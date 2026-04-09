@@ -16,7 +16,15 @@ const navigation = [
       { href: "/admin/users/admins", label: "Admins" },
     ],
   },
-  { href: "/admin/courses", label: "Courses" },
+  {
+    label: "Courses",
+    children: [
+      { href: "/admin/courses/all", label: "All courses" },
+      { href: "/admin/courses/course-approvals", label: "Course approvals" },
+      { href: "/admin/courses/payments", label: "Payments" },
+      { href: "/admin/courses/payment-approvals", label: "Payment approvals" },
+    ],
+  },
   { href: "/admin/announcements", label: "Announcements" },
   { href: "/admin/uploads", label: "Uploads" },
   { href: "/admin/access", label: "Access control" },
